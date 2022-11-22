@@ -50,16 +50,16 @@ def parse_input():
     s1 = input_strings[0]
     while i < len(num1):
         s1 = s1[0:num1[i]+1] + s1 + s1[num1[i]+1 :]
-        i += 1
+        i = i + 1
 
     i = 0
     s2 = input_strings[1]
     while i < len(num2):
         s2 = s2[0:num2[i]+1] + s2 + s2[num2[i]+1 :]
-        i += 1
+        i = i + 1
     return s1, s2, output_file
 
-# perform dynamic programming
+# dynamic programming
 def perform_alignment_dp(s1, s2):
 
     s1_length = len(s1)
@@ -114,10 +114,10 @@ def perform_alignment_dp(s1, s2):
     while i != s1_length and j != s1_length:
         if i != s1_length and path[i + 1][j] == 1:
             s1_aligned = s1_aligned + s1[i]
-            s2_aligned = s2_aligned + '-'
+            s2_aligned = s2_aligned + '_'
             i = i + 1
         elif j != s2_length and path[i][j + 1]==1:
-            s1_aligned = s1_aligned + '-'
+            s1_aligned = s1_aligned + '_'
             s2_aligned = s2_aligned + s2[j]
             j = j + 1
         else:
@@ -127,7 +127,6 @@ def perform_alignment_dp(s1, s2):
             j = j + 1
 
     return s1_aligned, s2_aligned, cost
-
 
 
 ## RUNNER CODE
