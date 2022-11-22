@@ -142,7 +142,6 @@ end_time = time.process_time()
 used_memory = end_memory - start_memory
 runtime = end_time - start_time
 
-
 # write the output
 output_data = [str(cost)+ '\n', 
                 s1_aligned + '\n', 
