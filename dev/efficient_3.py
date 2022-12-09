@@ -60,149 +60,133 @@ def parse_input():
         i = i + 1
     return s1, s2, output_file
 
-# start with an empty path
-def forward(s1, s2):
-    OPT = np.zeros((len(s1)+1, 2))
-    for i in range(1,len(s1)+1):
-        OPT[i][0]= i * gap_penalty
-    for j in range(1,len(s2)+1):
-        OPT[0][1]= j * gap_penalty
-        for i in range(1,len(s1)+1):
-            OPT[i][1] = min(OPT[i-1][0] + mismatch_penalty(s1[i-1], s2[j-1]),
-                            OPT[i-1][1]+ gap_penalty,
-                            OPT[i][0] + gap_penalty)
-        for i in range(0,len(s1)+1):
-            OPT[i][0] = OPT[i][1]
-    return (OPT.T)[1]
+def perform_alignment_dp(s1, s2):
+    OPT = np.zeros((len(s1) + 1, len(s2) + 1))
 
-def backward(s1,s2):
-    OPT = np.zeros((len(s1)+1, 2))
-    for i in range(1,len(s1)+1):
-        OPT[len(s1)-i][1]=i*gap_penalty
-    for j in range(len(s2)-1,-1,-1):
-        OPT[len(s1)][0]=(len(s2)-j) * gap_penalty
-        for i in range(len(s1)-1, -1, -1):
-            OPT[i][0]=min(OPT[i+1][1] + mismatch_penalty(s1[i], s2[j]),
-                        OPT[i+1][0]+ gap_penalty,
-                       OPT[i][1] + gap_penalty)
-                       
-        for i in range(0,len(s1)+1):
-            OPT[i][1] = OPT[i][0]
-    return (OPT.T)[0]
-
-
-def dynamic_programming(P, s1, s2, s1_index, s2_index):
-    s1_length = len(s1)
-    s2_length = len(s2) 
-
-    # fill the opt matrix by dynamic programming
-    OPT = [[0 for col in range(s2_length + 1)] for row in range(s1_length + 1)]
-    for i in range(s1_length+1):
+    for i in range(1, len(s1) + 1):
         OPT[i][0] = gap_penalty * i
 
-    for j in range(s2_length+1):
+    for j in range(1, len(s2) + 1):
         OPT[0][j] = gap_penalty * j
 
-    for i in range(1, s1_length+1):
-        for j in range(1, s2_length+1):
-            if s1[i-1] == s2[j-1]:
-                min_value = min(OPT[i-1][j-1],
-                                OPT[i-1][j] + gap_penalty,
-                                OPT[i][j-1] + gap_penalty)
-                OPT[i][j] = min_value
-            else:
-                min_value = min(OPT[i - 1][j - 1] + mismatch_penalty(s1[i-1], s2[j-1]),
-                                OPT[i - 1][j] + gap_penalty,
-                                OPT[i][j - 1] + gap_penalty)
-                OPT[i][j] = min_value
+    s1 = 'x' + s1
+    s2 = 'x' + s2
+
+    for i in range(1, len(s1)):
+        for j in range(1, len(s2)):
+            OPT[i][j] = min(OPT[i][j-1] + gap_penalty,
+                            OPT[i-1][j] + gap_penalty,
+                            OPT[i-1][j-1] + mismatch_penalty(s1[i], s2[j]))
+
+    return OPT
+
+def perform_alignment_dp_rev(s1, s2):
+
+    s1 = ' ' + s1
+    s2 = ' ' + s2
+
+    OPT = np.zeros((len(s1), 2))
+    for i in range(len(s1)):
+        OPT[i][0] = i * gap_penalty
+    OPT[0][1] = gap_penalty
+
+    j = 1
+    while j < len(s2):
+        for i in range(1, len(s1)):
+            OPT[i][1] = min(OPT[i-1][1] + gap_penalty,
+                            OPT[i][0] + gap_penalty,
+                            OPT[i-1][0] + mismatch_penalty(s1[i], s2[j]))
+        j = j + 1
+
+        OPT[:, 0] = OPT[:, 1]
+        OPT[:, 1] = 0
+        OPT[0][1] = j * gap_penalty
+
+    return OPT
 
 
-    # Find path
-    i = s1_length
-    j = s2_length
-    path = [[0 for col in range(s2_length+1)] for row in range(s1_length+1)]
-    path[i][j] = 1
-    path[0][0] = 1
-    
-    while i!=0 or j!=0:
-        if  OPT[i][j] == OPT[i-1][j] + gap_penalty:
-            path[i-1][j] = 1
-            i = i-1
-        elif OPT[i][j] == OPT[i][j-1] + gap_penalty:
-            path[i][j-1] = 1
-            j = j-1
+def get_path(s1, s2, OPT):
+    s1 = ' ' + s1
+    s2 = ' ' + s2
+
+    i = len(s1) - 1
+    j = len(s2) - 1
+
+    t1 = []
+    t2 = []
+
+    while i > 0 and j > 0:
+        move_hor = OPT[i][j - 1] + gap_penalty
+        move_ver = OPT[i - 1][j] + gap_penalty
+        move_cro = OPT[i - 1][j - 1] + mismatch_penalty(s1[i], s2[j])
+
+        movement = min(move_hor, move_ver, move_cro)
+        if move_cro == movement:
+            t1.append(s1[i])
+            t2.append(s2[j])
+            i = i - 1
+            j = j - 1
+        elif move_ver == movement:
+            t1.append(s1[i])
+            t2.append('_')
+            i = i - 1
         else:
-            path[i-1][j - 1] = 1
-            i = i-1
-            j = j-1
+            t1.append('_')
+            t2.append(s2[j])
+            j = j - 1
 
-    for k, x in enumerate(path):
-        for t in range(len(path[0])):
-            if x[t] == 1:
-                P.append([k + s1_index , t + s2_index])
+    while i > 0:
+        t1.append(s1[i])
+        t2.append('_')
+        i = i - 1
 
-    return P
+    while j > 0:
+        t1.append('_')
+        t2.append(s2[j])
+        j = j - 1
 
+    t1 = ''.join(reversed(t1))
+    t2 = ''.join(reversed(t2))
 
-def divide_and_conquer(P, s1, s2, s1_index, s2_index):
-    s1_length = len(s1)
-    s2_length = len(s2) 
-    
-    if s1_length <= 2 or s2_length <= 2:
-        P = dynamic_programming(P, s1, s2, s1_index, s2_index)
-
-    else:   
-        f = np.array( forward(s1, s2[0:s2_length//2]))
-        g = np.array(backward(s1, s2[s2_length//2+1:s2_length]))
-        sum_list = f + g
-        min_sum = sum_list[0]
-        min_index = 0
-        for index, one in enumerate(sum_list):
-            if one < min_sum:
-                min_sum = one
-                min_index = index
-        P.append([min_index + s1_index, s2_length//2 + s2_index])
-
-        P = divide_and_conquer(P, s1[0:min_index], s2[0:s2_length//2], s1_index, s2_index)
-        P = divide_and_conquer(P, s1[min_index:s1_length], s2[s2_length//2:s2_length], min_index + s1_index, s2_length//2 + s2_index)
-
-    return P
+    return t1, t2
 
 def perform_alignment_dc(s1, s2):
-    P = divide_and_conquer([], s1, s2, 0, 0)
-    P.sort(key = lambda x:(x[0],x[1]))
-    
-    index = 0
-    s1_aligned = ''
-    s2_aligned = ''
-    i = 0
-    j = 0
-    while index < len(P)-1:
-        if P[index][0] < P[index+1][0] and P[index][1] == P[index+1][1] :
-            s1_aligned = s1_aligned + s1[i]
-            s2_aligned = s2_aligned + '_'
-            i = i + 1
-        elif P[index][0] == P[index+1][0] and P[index][1] < P[index+1][1] :
-            s1_aligned = s1_aligned + '_'
-            s2_aligned = s2_aligned + s2[j]
-            j = j + 1
-        elif P[index][0]==P[index+1][0] and P[index][1] == P[index+1][1] :
-            pass
-        else:
-            s1_aligned = s1_aligned + s1[i]
-            s2_aligned = s2_aligned + s2[j]
-            i = i + 1
-            j = j + 1
-        index = index + 1
+    s1_length = len(s1)
+    s2_length = len(s2)
 
+    if s1_length <= 2 or s2_length <= 2:
+        OPT = perform_alignment_dp(s1, s2)
+        return get_path(s1, s2, OPT)
+
+    min_index = np.inf
+    min_sum = np.inf
+
+    c1 = perform_alignment_dp_rev(s1,       s2[:s2_length // 2])
+    c2 = perform_alignment_dp_rev(s1[::-1], s2[s2_length // 2:][::-1])
+
+    c2 = c2[::-1]
+
+    for idx in range(c2.shape[0]):
+        s = c1[idx][0] + c2[idx][0]
+        if s < min_sum:
+            min_sum = s
+            min_index = idx
+
+    s1_left, s2_left = perform_alignment_dc(s1[:min_index], s2[:s2_length // 2])
+    s1_right, s2_right = perform_alignment_dc(s1[min_index:], s2[s2_length // 2:])
+    s1_aligned = s1_left + s1_right
+    s2_aligned = s2_left + s2_right
+
+    return s1_aligned, s2_aligned
+
+def calculate_cost(s1_aligned, s2_aligned):
     cost = 0
     for i in range(len(s1_aligned)):
         if s1_aligned[i] == '_' or s2_aligned[i] == '_':
             cost = cost + gap_penalty
         else:
             cost = cost + mismatch_penalty(s1_aligned[i], s2_aligned[i])
-        
-    return s1_aligned, s2_aligned, cost
+    return cost
 
 
 ## RUNNER CODE
@@ -210,8 +194,9 @@ start_time = time.process_time()
 start_memory = process_memory()
 
 s1, s2, output_file = parse_input()
-s1_aligned, s2_aligned, cost = perform_alignment_dc(s1, s2)
-
+s1_aligned, s2_aligned = perform_alignment_dc(s1, s2)
+cost = calculate_cost(s1_aligned, s2_aligned)
+    
 end_memory = process_memory()
 end_time = time.process_time()
 
